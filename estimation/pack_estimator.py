@@ -62,6 +62,7 @@ class PackEstimator:
         self._last_seen = np.full(n_cells, -np.inf)
         self._i_hist: deque[tuple[float, float]] = deque(maxlen=40)
         self._i_sum = 0.0
+        self._aux_sum = np.zeros(n_cells)
         self._i_n = 0
         self._t_next: float | None = None
         self.compute_s = 0.0  # cumulative filter wall time
@@ -69,10 +70,23 @@ class PackEstimator:
 
     # ------------------------------------------------------------------ run
 
-    def tick(self, t: float, tel: Telemetry, dt_tick: float) -> None:
-        """Call once per simulation tick with the current telemetry."""
+    def tick(
+        self,
+        t: float,
+        tel: Telemetry,
+        dt_tick: float,
+        aux_cmd_a: np.ndarray | None = None,
+    ) -> None:
+        """Call once per simulation tick with the current telemetry.
+
+        aux_cmd_a: per-cell currents the controller itself commands (the
+        active balancer) — known to the BMS even though they bypass the
+        pack current sensor, so the filters must account for them.
+        """
         self._i_hist.append((t, tel.i))
         self._i_sum += tel.i
+        if aux_cmd_a is not None:
+            self._aux_sum += aux_cmd_a
         self._i_n += 1
         if self._t_next is None:
             self._t_next = t + self.dt_filter
@@ -80,17 +94,20 @@ class PackEstimator:
             return
 
         i_mean = self._i_sum / max(self._i_n, 1)
+        aux_mean = self._aux_sum / max(self._i_n, 1)
         self._i_sum, self._i_n = 0.0, 0
+        self._aux_sum = np.zeros(self.n)
         self._t_next += self.dt_filter
 
+        i_cells = i_mean + aux_mean  # per-cell current seen by each cell
         temp = self._cell_temps(tel)
         t0 = time.perf_counter()
-        self.bank.predict(i_mean, self.dt_filter, temp)
-        self._propagate_hysteresis(i_mean)
+        self.bank.predict(i_cells, self.dt_filter, temp)
+        self._propagate_hysteresis(i_cells)
 
         fresh = tel.v_time > self._last_seen
         if np.any(fresh):
-            i_at_sample = self._current_at(tel.v_time, fallback=i_mean)
+            i_at_sample = self._current_at(tel.v_time, fallback=i_mean) + aux_mean
             self.bank.update(fresh, tel.v, i_at_sample, self.h)
             self._last_seen = np.maximum(self._last_seen, tel.v_time)
         self.compute_s += time.perf_counter() - t0
@@ -107,12 +124,12 @@ class PackEstimator:
         t_mod = np.where(cnt > 0, summed / np.maximum(cnt, 1), self.p.t_ref_c)
         return t_mod[self.module_of]
 
-    def _propagate_hysteresis(self, i_mean: float) -> None:
+    def _propagate_hysteresis(self, i_cells: float | np.ndarray) -> None:
         f = np.exp(
-            -abs(i_mean) * self.p.gamma_hyst * self.dt_filter
+            -np.abs(i_cells) * self.p.gamma_hyst * self.dt_filter
             / (3600.0 * self.p.q_nom_ah)
         )
-        self.h = f * self.h - (1.0 - f) * np.sign(i_mean) * self.p.m_hyst
+        self.h = f * self.h - (1.0 - f) * np.sign(i_cells) * self.p.m_hyst
 
     def _current_at(self, t_sample: np.ndarray, fallback: float) -> np.ndarray:
         """Current-sensor reading nearest each (per-cell) sample time."""
