@@ -11,7 +11,7 @@ in Phase 8.
 | Phase | Scope | Status |
 |---|---|---|
 | 1 | Second-order Thevenin cell model (temperature, hysteresis, aging) | ✅ |
-| 2 | 48-cell pack (6 modules × 8s) + bandwidth-limited BMS bus | — |
+| 2 | 48-cell pack (6 modules × 8s) + bandwidth-limited BMS bus | ✅ |
 | 3 | UKF (primary) + EKF joint SOC/SOH estimation | — |
 | 4 | Optimization-based active balancing | — |
 | 5 | Coupled electro-thermal model | — |

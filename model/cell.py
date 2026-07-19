@@ -45,7 +45,10 @@ from model.ocv import ocv as _ocv
 
 #: CellParams fields that become per-cell arrays in CellArray, so that
 #: manufacturing variation and differential aging can act cell-by-cell.
-PER_CELL_PARAMS = ("q_nom_ah", "r0", "r1", "c1", "r2", "c2", "m_hyst")
+PER_CELL_PARAMS = (
+    "q_nom_ah", "r0", "r1", "c1", "r2", "c2", "m_hyst",
+    "eta_chg", "self_discharge_a",
+)
 
 
 @dataclass
@@ -61,6 +64,7 @@ class CellParams:
     m_hyst: float = 0.012       # hysteresis voltage magnitude M [V]
     gamma_hyst: float = 50.0    # hysteresis convergence rate [1 / unit SOC]
     eta_chg: float = 0.995      # coulombic efficiency while charging
+    self_discharge_a: float = 70e-6  # internal leakage current [A] (~2%/month)
     v_max: float = 4.2          # charge voltage limit [V]
     v_min: float = 3.0          # discharge cutoff voltage [V]
     t_ref_c: float = 25.0       # reference temperature [degC]
@@ -188,9 +192,13 @@ class CellArray:
         self.v_rc1 = a1 * self.v_rc1 + r1_eff * (1.0 - a1) * i
         self.v_rc2 = a2 * self.v_rc2 + r2_eff * (1.0 - a2) * i
 
-        # Coulomb counting; charging pays the coulombic-efficiency tax
-        eta = np.where(i < 0.0, self.p.eta_chg, 1.0)
-        self.soc = np.clip(self.soc - eta * i * dt_s / q_as, 0.0, 1.0)
+        # Coulomb counting; charging pays the coulombic-efficiency tax and
+        # internal leakage always drains (per-cell differences in both are
+        # what makes series strings drift out of balance over cycles)
+        eta = np.where(i < 0.0, self.eta_chg, 1.0)
+        self.soc = np.clip(
+            self.soc - (eta * i + self.self_discharge_a) * dt_s / q_as, 0.0, 1.0
+        )
 
         # Hysteresis: relax toward -M (discharge) / +M (charge); f = 1 at
         # rest, so h holds between pulses like a real cell
