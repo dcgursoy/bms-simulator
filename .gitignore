@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Large regenerable simulation outputs (plots and summaries stay tracked)
+/results/**/*.npz
+/results/**/*.csv
+/results/**/raw/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
