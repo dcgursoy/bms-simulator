@@ -68,6 +68,7 @@ class CellParams:
     v_max: float = 4.2          # charge voltage limit [V]
     v_min: float = 3.0          # discharge cutoff voltage [V]
     t_ref_c: float = 25.0       # reference temperature [degC]
+    docv_dt_v_per_k: float = -0.15e-3  # entropy coefficient dOCV/dT [V/K]
     ea_over_r: float = 3000.0   # Arrhenius activation Ea/R for resistances [K]
     cap_temp_coeff: float = 0.006    # fractional capacity loss per degC below ref
     fade_at_1000_efc: float = 0.20   # fractional capacity fade after 1000 EFC
@@ -208,6 +209,20 @@ class CellArray:
         self.ah_throughput = self.ah_throughput + np.abs(i) * dt_s / 3600.0
 
         return _ocv(self.soc) + self.hyst - i * r0_eff - self.v_rc1 - self.v_rc2
+
+    def heat_generation_w(
+        self, current_a: float | np.ndarray, temp_c: float | np.ndarray = 25.0
+    ) -> np.ndarray:
+        """Per-cell heat generation [W] at the current state: irreversible
+        I2R dissipation in all three resistances plus reversible entropic
+        heat -i*T*(dOCV/dT) (exothermic on discharge, endothermic on
+        charge, with the negative entropy coefficient)."""
+        i = np.broadcast_to(np.asarray(current_a, dtype=float), (self.n,))
+        temp_c = np.asarray(temp_c, dtype=float)
+        r0_eff, r1_eff, r2_eff = self.resistances(temp_c)
+        q_irr = i**2 * r0_eff + self.v_rc1**2 / r1_eff + self.v_rc2**2 / r2_eff
+        q_rev = -i * (temp_c + 273.15) * self.p.docv_dt_v_per_k
+        return q_irr + q_rev
 
     # --------------------------------------------------------------- logging
 

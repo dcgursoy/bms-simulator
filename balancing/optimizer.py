@@ -126,6 +126,21 @@ class LPBalancer:
         return self.last_cmd
 
 
+def thermal_derate(
+    i_max_a: float,
+    temp_c: np.ndarray,
+    t_full_c: float = 40.0,
+    t_zero_c: float = 55.0,
+) -> np.ndarray:
+    """Per-cell balancing-current limit vs temperature: full rating below
+    t_full_c, linearly derated to zero at t_zero_c. Feed the result to
+    LPBalancer.replan(i_max_percell=...) — the LP then plans around hot
+    cells instead of pushing current through them."""
+    frac = np.clip((t_zero_c - np.asarray(temp_c, dtype=float))
+                   / (t_zero_c - t_full_c), 0.0, 1.0)
+    return i_max_a * frac
+
+
 class PassiveBleeder:
     """Baseline: resistive bleed toward the estimated minimum SOC."""
 

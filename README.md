@@ -14,7 +14,7 @@ in Phase 8.
 | 2 | 48-cell pack (6 modules × 8s) + bandwidth-limited BMS bus | ✅ |
 | 3 | UKF (primary) + EKF joint SOC/SOH estimation | ✅ |
 | 4 | Optimization-based active balancing | ✅ |
-| 5 | Coupled electro-thermal model | — |
+| 5 | Coupled electro-thermal model | ✅ |
 | 6 | Model-based fault detection + safety policy | — |
 | 7 | Live dashboard (FastAPI + WebSocket) | — |
 | 8 | Results, analysis, portfolio README | — |
