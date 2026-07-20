@@ -6,10 +6,10 @@ Pre-aged 48-cell pack, ~2 h urban drive cycle, cold boot at 50% SOC vs true 95%.
 |---|---|---|
 | convergence to <2% [s] | 2 | 58 |
 | SOC RMSE (steady) | 0.44% | 0.71% |
-| SOC max abs err (steady) | 1.45% | 2.10% |
+| SOC max abs err (steady) | 1.44% | 2.08% |
 | R0 error init -> final | 9.1% -> 0.8% | 9.1% -> 0.8% |
 | capacity error init -> final | 7.8% -> 1.7% | 7.8% -> 3.8% |
-| compute [us/cell/step] | 23 | 17 |
+| compute [us/cell/step] | 25 | 18 |
 
 Coulomb-counting baseline (wrong init, nominal capacity): 41.71% RMSE.
 
