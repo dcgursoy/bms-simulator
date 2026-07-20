@@ -51,8 +51,11 @@ class FilterTuning:
     p0_std: tuple = (0.40, 0.010, 0.010, 0.005, 0.20)
     # Continuous process-noise variance rates [unit^2 / s]:
     # soc absorbs current-sensor error + hysteresis/efficiency mismatch;
-    # r0 and q_ah random-walk rates set how fast SOH can be tracked
-    q_rate: tuple = (7e-9, 1e-6, 5e-7, 2.8e-10, 2.8e-8)
+    # r0 and q_ah random-walk rates set how fast SOH can be tracked. The
+    # r0 rate is sized to follow abnormally fast impedance growth (the
+    # accelerated-degradation fault, ~4 mOhm/h) — costs only ~0.2 mOhm
+    # of extra wander between excitations
+    q_rate: tuple = (7e-9, 1e-6, 5e-7, 1e-8, 2.8e-8)
     # Voltage measurement variance: sensor noise + quantization + the
     # residual from up-to-1 s report staleness
     r_var: float = (2.5e-3) ** 2
@@ -87,6 +90,23 @@ class _FilterBank:
         self.P = np.tile(np.diag(p0), (n, 1, 1))
         self._q_rate = np.diag(self.tun.q_rate)
         self._jitter = 1e-9 * np.diag(p0)
+        # Innovation record of the most recent filter step — what the
+        # residual-based fault detector consumes. NaN = no update.
+        self.last_innov = np.full(n, np.nan)
+        self.last_innov_var = np.full(n, np.nan)
+        self.last_update_mask = np.zeros(n, dtype=bool)
+
+    def clear_innovations(self) -> None:
+        """Reset the per-step innovation record (call before each filter
+        step so stale innovations never masquerade as fresh ones)."""
+        self.last_innov[:] = np.nan
+        self.last_innov_var[:] = np.nan
+        self.last_update_mask[:] = False
+
+    def _record_innovations(self, mask, innov, innov_var) -> None:
+        self.last_innov = np.where(mask, innov, np.nan)
+        self.last_innov_var = np.where(mask, innov_var, np.nan)
+        self.last_update_mask = mask.copy()
 
     # -------------------------------------------------------- shared model
 
@@ -189,6 +209,7 @@ class UKFBank(_FilterBank):
         gain[np.abs(i_meas) < self.tun.min_exc_a, 3] = 0.0
         innov = v_meas - ybar
         m = mask
+        self._record_innovations(m, innov, pyy)
         self.x[m] += gain[m] * innov[m, None]
         # Arbitrary-gain covariance update (valid with the gated gain,
         # where the optimal-gain shortcut P -= pyy*K*K^T is not):
@@ -243,6 +264,7 @@ class EKFBank(_FilterBank):
         gain[np.abs(i_meas) < self.tun.min_exc_a, 3] = 0.0
         innov = v_meas - ybar
         m = mask
+        self._record_innovations(m, innov, S)
         self.x[m] += gain[m] * innov[m, None]
         # Arbitrary-gain covariance update (see UKF note): with PH = P*H^T,
         # P <- P - K*PH^T - PH*K^T + S*K*K^T

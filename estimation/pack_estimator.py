@@ -59,6 +59,9 @@ class PackEstimator:
         self.bank = make_filter_bank(kind, n_cells, x0, self.p, tuning)
 
         self.h = np.zeros(n_cells)  # open-loop hysteresis tracker
+        # Cells whose measurements the safety policy has quarantined
+        # (sensor faults): they propagate open-loop, no voltage updates
+        self.excluded = np.zeros(n_cells, dtype=bool)
         self._last_seen = np.full(n_cells, -np.inf)
         self._i_hist: deque[tuple[float, float]] = deque(maxlen=40)
         self._i_sum = 0.0
@@ -102,10 +105,11 @@ class PackEstimator:
         i_cells = i_mean + aux_mean  # per-cell current seen by each cell
         temp = self._cell_temps(tel)
         t0 = time.perf_counter()
+        self.bank.clear_innovations()
         self.bank.predict(i_cells, self.dt_filter, temp)
         self._propagate_hysteresis(i_cells)
 
-        fresh = tel.v_time > self._last_seen
+        fresh = (tel.v_time > self._last_seen) & ~self.excluded
         if np.any(fresh):
             i_at_sample = self._current_at(tel.v_time, fallback=i_mean) + aux_mean
             self.bank.update(fresh, tel.v, i_at_sample, self.h)
