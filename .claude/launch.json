@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "bms-dashboard",
+      "runtimeExecutable": "C:\\Users\\dcgur\\Downloads\\bms-simulator\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": ["C:\\Users\\dcgur\\Downloads\\bms-simulator\\dashboard\\server.py"],
+      "port": 8420
+    }
+  ]
+}

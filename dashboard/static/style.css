@@ -1,0 +1,157 @@
+:root {
+  --bg: #0d1117;
+  --panel: #161b22;
+  --panel-2: #1c2129;
+  --border: #30363d;
+  --ink: #e6edf3;
+  --ink-2: #9198a1;
+  --ink-3: #6e7681;
+  --est: #4493f8;
+  --rep: #cd750d;
+  --ok: #3fb950;
+  --warn: #d29922;
+  --crit: #f85149;
+}
+
+* { box-sizing: border-box; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 13px/1.45 "Segoe UI", system-ui, sans-serif;
+  padding: 12px 16px 24px;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+}
+
+header h1 {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  margin-right: 8px;
+}
+
+header h1 span { color: var(--est); }
+
+.chip {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+
+.chip b { font-variant-numeric: tabular-nums; font-weight: 600; }
+.chip .lbl { color: var(--ink-2); margin-right: 5px; font-size: 11px; }
+
+.badge {
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+.badge.closed { color: var(--ok); border-color: var(--ok); }
+.badge.open { color: #fff; background: var(--crit); }
+
+.controls { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+select, button {
+  background: var(--panel-2);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+button:hover, select:hover { border-color: var(--ink-3); }
+button.danger { color: var(--crit); }
+label.toggle { display: flex; gap: 5px; align-items: center; color: var(--ink-2); cursor: pointer; }
+
+main { display: grid; grid-template-columns: 1fr 330px; gap: 12px; max-width: 1500px; }
+
+.col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+.row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px 8px;
+}
+
+.panel h2 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel h2 select { font-size: 11px; padding: 1px 6px; }
+
+canvas { display: block; }
+
+.readout {
+  color: var(--ink-3);
+  font-size: 11px;
+  min-height: 16px;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.legend { display: flex; gap: 12px; font-size: 11px; color: var(--ink-2); margin-bottom: 4px; }
+.legend i {
+  display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+  margin-right: 4px; vertical-align: -1px;
+}
+
+.ops-target { margin-bottom: 8px; color: var(--ink-2); }
+.ops-target b { color: var(--ink); }
+
+.ops-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.ops-buttons button { padding: 7px 6px; }
+.ops-buttons .short { color: var(--crit); }
+.ops-buttons .sensor { color: var(--warn); }
+.ops-buttons .degr { color: var(--rep); }
+.hint { color: var(--ink-3); font-size: 11px; margin-top: 6px; }
+
+.diag-card {
+  border-left: 3px solid var(--warn);
+  background: var(--panel-2);
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+.diag-card.critical { border-left-color: var(--crit); }
+.diag-card.maintenance { border-left-color: var(--est); }
+.diag-card .kind { font-weight: 600; }
+.diag-card .sev { float: right; font-size: 10px; text-transform: uppercase; color: var(--ink-2); }
+.diag-card .detail { color: var(--ink-2); font-size: 11px; margin-top: 2px; }
+.diag-empty { color: var(--ink-3); font-size: 12px; }
+
+#events {
+  max-height: 260px;
+  overflow-y: auto;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+#events div { padding: 2px 0; border-bottom: 1px solid #21262d; color: var(--ink-2); }
+#events div b { color: var(--ink); font-weight: 500; }
+#events .alarm b { color: var(--crit); }
+#events .inject b { color: var(--warn); }
+
+.conn { color: var(--ink-3); font-size: 11px; }
+.conn.down { color: var(--crit); }

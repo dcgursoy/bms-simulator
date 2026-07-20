@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BMS Live Console</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <h1>BMS <span>Live Console</span></h1>
+  <span class="chip"><span class="lbl">sim t</span><b id="c-t">–</b></span>
+  <span class="chip"><span class="lbl">pack</span><b id="c-v">–</b> · <b id="c-i">–</b></span>
+  <span class="chip"><span class="lbl">SOC est</span><b id="c-soc">–</b></span>
+  <span class="chip"><span class="lbl">spread</span><b id="c-spread">–</b></span>
+  <span class="chip"><span class="lbl">I limit</span><b id="c-limit">–</b></span>
+  <span class="chip"><span class="lbl">bal loss</span><b id="c-loss">–</b></span>
+  <span id="c-contactor" class="badge closed">CONTACTOR CLOSED</span>
+  <span id="conn" class="conn">connecting…</span>
+  <div class="controls">
+    <select id="ctl-mode">
+      <option value="drive">drive cycle</option>
+      <option value="rest">rest</option>
+      <option value="charge">CC-CV charge</option>
+      <option value="discharge">2C discharge</option>
+    </select>
+    <select id="ctl-speed">
+      <option value="1">1× speed</option>
+      <option value="5" selected>5× speed</option>
+      <option value="20">20× speed</option>
+    </select>
+    <label class="toggle"><input type="checkbox" id="ctl-bal" checked>balancer</label>
+    <button id="ctl-reset" class="danger">reset sim</button>
+  </div>
+</header>
+
+<main>
+  <div class="col">
+    <div class="row">
+      <div class="panel">
+        <h2>Pack grid — 6 modules × 8s
+          <select id="ctl-metric">
+            <option value="v">voltage</option>
+            <option value="soc">SOC (est)</option>
+            <option value="r0">SOH: R0 (est)</option>
+            <option value="q">SOH: capacity (est)</option>
+            <option value="bal">balancing current</option>
+          </select>
+        </h2>
+        <canvas id="grid" width="470" height="300"></canvas>
+        <div class="readout" id="grid-readout">click a cell to select it</div>
+      </div>
+      <div class="panel">
+        <h2>Thermal map — true cell temperatures</h2>
+        <canvas id="thermal" width="440" height="300"></canvas>
+        <div class="readout" id="thermal-readout">&nbsp;</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Cell SOC (UKF estimates) &amp; active balancing</h2>
+      <div class="legend">
+        <span><i style="background:var(--rep)"></i>draining</span>
+        <span><i style="background:var(--est)"></i>charging</span>
+        <span><i style="background:#4d5566"></i>idle</span>
+        <span><i style="background:none;border-bottom:2px dashed var(--ink-2);width:14px;height:1px;margin-bottom:3px"></i>charge-weighted mean</span>
+      </div>
+      <canvas id="bars" width="930" height="150"></canvas>
+      <div class="readout" id="bars-readout">&nbsp;</div>
+    </div>
+
+    <div class="row">
+      <div class="panel">
+        <h2>Cell voltage — <span id="chart-v-cell">cell 0</span></h2>
+        <div class="legend">
+          <span><i style="background:var(--ink)"></i>truth</span>
+          <span><i style="background:var(--rep)"></i>bus-reported</span>
+        </div>
+        <canvas id="chart-v" width="290" height="180"></canvas>
+        <div class="readout" id="chart-v-readout">&nbsp;</div>
+      </div>
+      <div class="panel">
+        <h2>Cell SOC — <span id="chart-soc-cell">cell 0</span></h2>
+        <div class="legend">
+          <span><i style="background:var(--ink)"></i>truth</span>
+          <span><i style="background:var(--est)"></i>UKF estimate</span>
+        </div>
+        <canvas id="chart-soc" width="290" height="180"></canvas>
+        <div class="readout" id="chart-soc-readout">&nbsp;</div>
+      </div>
+      <div class="panel">
+        <h2>Pack current</h2>
+        <div class="legend">
+          <span><i style="background:var(--est)"></i>applied</span>
+          <span><i style="background:var(--ink-3)"></i>requested</span>
+        </div>
+        <canvas id="chart-i" width="290" height="180"></canvas>
+        <div class="readout" id="chart-i-readout">&nbsp;</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="panel">
+      <h2>Fault injection</h2>
+      <div class="ops-target">target: <b id="ops-cell">cell 0</b> <span id="ops-pos"></span></div>
+      <div class="ops-buttons">
+        <button class="short" data-kind="short">internal short</button>
+        <button class="degr" data-kind="degradation">rapid aging</button>
+        <button class="sensor" data-kind="freeze">freeze sensor</button>
+        <button class="sensor" data-kind="offset">offset sensor</button>
+      </div>
+      <div class="hint">pick the target by clicking a cell in the pack grid;
+        faults act on the truth simulation — watch the detector respond.</div>
+    </div>
+    <div class="panel">
+      <h2>Diagnoses</h2>
+      <div id="diags"><div class="diag-empty">no faults detected</div></div>
+    </div>
+    <div class="panel">
+      <h2>Event log</h2>
+      <div id="events"></div>
+    </div>
+  </div>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

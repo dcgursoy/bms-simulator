@@ -16,7 +16,7 @@ in Phase 8.
 | 4 | Optimization-based active balancing | ✅ |
 | 5 | Coupled electro-thermal model | ✅ |
 | 6 | Model-based fault detection + safety policy | ✅ |
-| 7 | Live dashboard (FastAPI + WebSocket) | — |
+| 7 | Live dashboard (FastAPI + WebSocket) | ✅ |
 | 8 | Results, analysis, portfolio README | — |
 
 ## Layout
