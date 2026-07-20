@@ -74,12 +74,16 @@ class DetectorTuning:
     # dead-bus cases.
     freeze_reports: int = 12
     freeze_fleet_mv: float = 0.5
-    # sensor-offset: the filter absorbs an offset into SOC within
-    # seconds, so the surviving signature is a STEP in fleet-relative
-    # SOC across the jump window that then settles (no continuing
-    # drain, no heat) — unlike a short, whose drain persists
+    # sensor-offset: the filter absorbs an offset within seconds, so the
+    # surviving signature is a STEP in fleet-relative SOC across the
+    # jump window that then settles (no continuing drain, no heat) —
+    # unlike a short, whose drain persists. Only part of the bias lands
+    # in SOC (the RC states and R0 soak up the rest), so the step
+    # threshold is ~1/4 of offset/dOCV — still ~4x the healthy
+    # fleet-relative SOC fluctuation, and the jump gate does the heavy
+    # lifting against false positives
     offset_confirm_s: float = 45.0
-    offset_soc_step: float = 0.03
+    offset_soc_step: float = 0.015
     # degradation: fleet-relative growth of the (EWMA-smoothed,
     # temperature-normalized) R0 estimate over a 10 min window. Healthy
     # estimates wander a few % on minutes timescales (noise-driven gain
@@ -102,6 +106,11 @@ class DetectorTuning:
     degradation_streak: int = 75
     r0_confident_std: float = 2.5e-3
     r0_smooth_alpha: float = 0.05
+    # SOH trending is invalid during thermal events: the module NTC no
+    # longer represents individual cells, and at rest the excitation-
+    # gated R0 estimate cannot follow the real Arrhenius shift — the
+    # normalization then fabricates apparent growth
+    degradation_max_temp_c: float = 45.0
 
 _SOC_RING = 46    # 45 s slew window at 1 Hz
 _R0_RING = 601    # 600 s R0-trend window (300 s half-window checkpoint)
@@ -135,6 +144,7 @@ class FaultDetector:
         self._pending_t = np.full(n_cells, np.nan)
         self._pending_sign = np.zeros(n_cells)
         self._soc_rel_at_jump = np.full(n_cells, np.nan)
+        self._soc_rel_prev = np.zeros(n_cells)
         self._r0_smooth: np.ndarray | None = None
         self._short_streak = np.zeros(n_cells, dtype=int)
         self._degr_streak = np.zeros(n_cells, dtype=int)
@@ -142,8 +152,19 @@ class FaultDetector:
 
     # ------------------------------------------------------------------ run
 
-    def step(self, t: float, tel: Telemetry, est: PackEstimator) -> list[Diagnosis]:
-        """Call once per filter step; returns diagnoses newly made now."""
+    def step(
+        self,
+        t: float,
+        tel: Telemetry,
+        est: PackEstimator,
+        alarm: bool = False,
+    ) -> list[Diagnosis]:
+        """Call once per filter step; returns diagnoses newly made now.
+
+        alarm=True (pack already in a critical safety state) suppresses
+        maintenance-tier trending — post-shutdown thermal transients and
+        the absence of load make SOH trends meaningless.
+        """
         tun = self.tun
         quarantined = est.excluded
 
@@ -165,7 +186,11 @@ class FaultDetector:
         opens = jump & np.isnan(self._pending_t)
         self._pending_t[opens] = t
         self._pending_sign[opens] = np.sign(innov[opens])
-        self._soc_rel_at_jump[opens] = soc_rel[opens]
+        # Snapshot the PRE-update fleet-relative SOC: by the time the
+        # detector runs, this step's update has already absorbed part of
+        # the anomaly into the estimate
+        self._soc_rel_at_jump[opens] = self._soc_rel_prev[opens]
+        self._soc_rel_prev = soc_rel
         expired = (t - self._pending_t) > tun.jump_window_s
         self._pending_t[expired] = np.nan
         self._soc_rel_at_jump[expired] = np.nan
@@ -218,7 +243,9 @@ class FaultDetector:
         # convergence, where the estimate's walk from nominal to per-cell
         # truth is monotone "growth" indistinguishable from aging
         r0_std = est.bank.std()[:, 3]
-        confident = r0_std < self.tun.r0_confident_std
+        temp_valid = np.nan_to_num(cell_temp, nan=self.p.t_ref_c) \
+            < self.tun.degradation_max_temp_c
+        confident = (r0_std < self.tun.r0_confident_std) & temp_valid
         r0_oldest = self._r0_ring[(self._ring_i + 1) % _R0_RING]
         r0_mid = self._r0_ring[(self._ring_i + 1 + _R0_RING // 2) % _R0_RING]
         with np.errstate(invalid="ignore", divide="ignore"):
@@ -288,8 +315,10 @@ class FaultDetector:
             ))
 
         # Accelerated degradation: temperature-normalized R0 growing over
-        # minutes vs the fleet (ring entries are already confidence-gated)
+        # minutes vs the fleet (ring entries are already confidence-gated;
+        # suppressed entirely while the pack is in a critical alarm state)
         degr = ready & (self.n_steps > _R0_RING) & ~quarantined & confident
+        degr &= not alarm
         degr &= (r0_rel > tun.degradation_rel) & (
             r0_rel_mid > tun.degradation_rel_mid
         )

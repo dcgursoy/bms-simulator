@@ -125,7 +125,8 @@ def run_scenario(name: str, spec: dict) -> dict:
         est.tick(t, bus.telemetry, DT)
         if est.n_steps > seen_steps:
             seen_steps = est.n_steps
-            new = detector.step(t, bus.telemetry, est)
+            new = detector.step(t, bus.telemetry, est,
+                                alarm=policy.contactor_open)
             if new:
                 policy.apply(t, new)
                 est.excluded = policy.excluded.copy()
@@ -293,6 +294,7 @@ def _plot_scenario(res: dict) -> None:
         ax.plot(tm, 1e3 * L["r0_est"][:, cell], "C3", lw=1.4,
                 label=f"cell {cell} R0 estimate")
         ax.set_ylabel("R0 [mOhm]")
+        ax.legend(fontsize=8, loc="center left")
     else:
         ax.plot(tm, L["t_mod"], lw=0.7)
         ax.set_ylabel("module temp [degC]")
@@ -300,7 +302,6 @@ def _plot_scenario(res: dict) -> None:
     ax2.plot(tm, 100 * np.asarray(L["limit_frac"]), "C2", ls="--", lw=1.2)
     ax2.set_ylabel("pack current limit [%]", color="C2")
     ax2.set_ylim(-5, 110)
-    ax.legend(fontsize=8, loc="center left")
     ax.set_xlabel("time [min]")
     for a in axes:
         a.grid(alpha=0.3)
