@@ -86,10 +86,10 @@ SCENARIOS: dict[str, dict] = {
                           inject=lambda inj, t: inj.inject_sensor_offset(8, 0.06, t),
                           expect=("sensor_fault", 8), latency_max=150.0,
                           shutdown=False, i_limit=0.5),
-    "degradation": dict(duration=2400.0, profile=cycle_profile,
+    "degradation": dict(duration=3600.0, profile=cycle_profile,
                         t_inject=200.0,
                         inject=lambda inj, t: inj.inject_degradation(42, 2000.0, t),
-                        expect=("degradation", 42), latency_max=1200.0,
+                        expect=("degradation", 42), latency_max=2400.0,
                         shutdown=False, i_limit=0.75),
 }
 

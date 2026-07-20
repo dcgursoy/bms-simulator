@@ -62,10 +62,14 @@ class FilterTuning:
     # Physical projection bounds for the parameter states
     r0_bounds: tuple = (0.008, 0.080)
     q_bounds: tuple = (1.5, 3.2)
-    # R0 is unobservable near zero current; below this excitation its
-    # update gain is zeroed so large innovations (e.g. a cold boot at
-    # rest) cannot shove it through weak cross-covariance
-    min_exc_a: float = 0.5
+    # R0 is unobservable near zero current; below this excitation (0.5C)
+    # its update gain is zeroed. This keeps large innovations (e.g. a
+    # cold boot at rest) from shoving R0 through weak cross-covariance,
+    # and also stops balancing-scale currents (~1 A) from feeding R0 —
+    # at that excitation the R0 signal is weak but innovations still
+    # carry full model mismatch, which slowly randomly-walks the
+    # estimate and can trip the degradation trend detector
+    min_exc_a: float = 1.25
     # Unscented-transform scaling
     alpha: float = 0.5
     beta: float = 2.0

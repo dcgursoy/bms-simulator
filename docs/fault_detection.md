@@ -51,10 +51,14 @@ These came from actual false-positive hunts, not theory:
    shutdown, the burning cell heats its neighbors' NTCs while the
    excitation-gated R0 estimates cannot follow, and the normalization
    fabricates 40–100% apparent growth.
-4. **Healthy estimates wander.** Model-mismatch excursions reach ~5%
-   per 10 min window but are transient; true aging sustains its rate in
-   every window — hence a high threshold plus a long streak, and a
-   monotonicity test at two horizons.
+4. **Healthy estimates wander — and short scenarios understate it.**
+   Model-mismatch excursions reach ~5–7% per 10 min window (hour-long
+   dashboard soaks found what 15-minute validation scenarios missed)
+   but they mean-revert, while true aging sustains its rate
+   indefinitely. The decisive discriminator is *persistence*: growth
+   above threshold for ≥80% of a sliding 15 min window. A consecutive-
+   streak test that long is too brittle (one flickering second resets
+   it) — it must be a windowed duty-cycle test.
 
 ## Validation (results/phase6/, 17/17 checks)
 
@@ -67,7 +71,7 @@ policy). Detection performance:
 | short | 0.2 Ω on cell 20 | internal_short | **7 s** | shutdown | 0 |
 | sensor freeze | stuck AFE, cell 35 | sensor_fault/frozen | **12 s** | quarantine + 50% | 0 |
 | sensor offset | +60 mV, cell 8 | sensor_fault/offset | **59 s** | quarantine + 50% | 0 |
-| degradation | 2000× aging, cell 42 | degradation | **563 s** | 75% + service flag | 0 |
+| degradation | 2000× aging, cell 42 | degradation | **1302 s** | 75% + service flag | 0 |
 
 **4/4 fault types correctly classified, 0 false positives** across all
 scenarios (~1.4 cell-hours × 48 cells). The short is caught by the

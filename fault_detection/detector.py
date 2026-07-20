@@ -95,15 +95,22 @@ class DetectorTuning:
     # estimator-confidence gate keeps the cold-boot convergence fan-out
     # (estimates walking from nominal to per-cell truth) from tripping it
     # Thresholds sized empirically: the filter tracks a genuine aging
-    # ramp at ~70% of its true rate (q_rate-limited lag); healthy cells'
-    # own mismatch-driven excursions reach ~5% per window but are
-    # transient peaks, while a real fault sustains its growth rate in
-    # every window — hence the high threshold AND the long streak.
-    # Converged R0 std sits at 1.4-1.9 mOhm vs 4+ mOhm during cold boot,
-    # so 2.5 mOhm separates the regimes cleanly
-    degradation_rel: float = 0.05
-    degradation_rel_mid: float = 0.018
-    degradation_streak: int = 75
+    # ramp at ~70% of its true rate (q_rate-limited lag). Healthy cells'
+    # mismatch-driven excursions can spike past 6% relative growth in a
+    # single window (hour-long soak testing found what 15-min scenarios
+    # missed), but they MEAN-REVERT within ~10-20 min, while true aging
+    # sustains its rate indefinitely — so the decisive filter is
+    # persistence: fleet-relative growth above threshold for >= 80% of
+    # a sliding 15 min window (a consecutive streak that long is too
+    # brittle — one flickering second resets it). Threshold sits between
+    # the fault's steady-state trend (>= 3.5%/window continuously, after
+    # its ~8% initial transient decays) and healthy peaks (~2.8%, and
+    # only briefly). Entirely appropriate for a maintenance-tier flag.
+    # Converged R0 std sits at 1.4-1.9 mOhm vs 4+ mOhm during cold
+    # boot, so 2.5 mOhm separates the regimes
+    degradation_rel: float = 0.03
+    degradation_window: int = 900
+    degradation_frac: float = 0.80
     r0_confident_std: float = 2.5e-3
     r0_smooth_alpha: float = 0.05
     # SOH trending is invalid during thermal events: the module NTC no
@@ -147,7 +154,10 @@ class FaultDetector:
         self._soc_rel_prev = np.zeros(n_cells)
         self._r0_smooth: np.ndarray | None = None
         self._short_streak = np.zeros(n_cells, dtype=int)
-        self._degr_streak = np.zeros(n_cells, dtype=int)
+        self._degr_ring = np.zeros((self.tun.degradation_window, n_cells),
+                                   dtype=bool)
+        self._degr_count = np.zeros(n_cells, dtype=int)
+        self._degr_i = 0
         self.n_steps = 0
 
     # ------------------------------------------------------------------ run
@@ -247,17 +257,12 @@ class FaultDetector:
             < self.tun.degradation_max_temp_c
         confident = (r0_std < self.tun.r0_confident_std) & temp_valid
         r0_oldest = self._r0_ring[(self._ring_i + 1) % _R0_RING]
-        r0_mid = self._r0_ring[(self._ring_i + 1 + _R0_RING // 2) % _R0_RING]
         with np.errstate(invalid="ignore", divide="ignore"):
             ratio_end = np.where(
                 np.isfinite(r0_oldest), self._r0_smooth / r0_oldest, 1.0
             )
-            ratio_mid = np.where(
-                np.isfinite(r0_oldest) & np.isfinite(r0_mid),
-                r0_mid / r0_oldest, 1.0,
-            )
         r0_rel = ratio_end - np.median(ratio_end)
-        r0_rel_mid = ratio_mid - np.median(ratio_mid)
+        self.dbg_r0_rel = r0_rel
         self._r0_ring[self._ring_i % _R0_RING] = np.where(
             confident, self._r0_smooth, np.nan
         )
@@ -319,12 +324,15 @@ class FaultDetector:
         # suppressed entirely while the pack is in a critical alarm state)
         degr = ready & (self.n_steps > _R0_RING) & ~quarantined & confident
         degr &= not alarm
-        degr &= (r0_rel > tun.degradation_rel) & (
-            r0_rel_mid > tun.degradation_rel_mid
+        degr &= r0_rel > tun.degradation_rel
+        self._degr_count += degr.astype(int) - self._degr_ring[self._degr_i]
+        self._degr_ring[self._degr_i] = degr
+        self._degr_i = (self._degr_i + 1) % tun.degradation_window
+        window_full = self.n_steps > _R0_RING + tun.degradation_window
+        fire = degr & window_full & (
+            self._degr_count >= int(tun.degradation_frac * tun.degradation_window)
         )
-        self._degr_streak[degr] += 1
-        self._degr_streak[~degr] = 0
-        for cell in np.flatnonzero(self._degr_streak >= tun.degradation_streak):
+        for cell in np.flatnonzero(fire):
             self._diagnose(new, cell, "degradation", "impedance_growth",
                            MAINTENANCE, t, (
                 f"R0 estimate grew {100 * (ratio_end[cell] - 1):.1f}% in 10 "

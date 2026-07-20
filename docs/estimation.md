@@ -46,7 +46,10 @@ Two robustness details that mattered:
 
 - **Excitation gating**: R0 is unobservable at rest (`∂v/∂r0 = −i ≈ 0`),
   but a large innovation (e.g. a cold boot) can still shove it through
-  weak cross-covariances. Below 0.2C the R0 gain row is zeroed.
+  weak cross-covariances. Below 0.5C the R0 gain row is zeroed — the
+  threshold also keeps balancing-scale currents (~1 A), where the R0
+  signal is weak but innovations carry full model mismatch, from slowly
+  random-walking the estimate (found in dashboard soak testing).
 - **Arbitrary-gain covariance update**: with a gated (suboptimal) gain,
   the optimal-gain shortcut `P −= p_yy K Kᵀ` is inconsistent and can
   break positive-definiteness. Both filters use the general form
